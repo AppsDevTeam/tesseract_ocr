@@ -1,3 +1,6 @@
+## 0.4.30
+- 16KB Page Size Compatibility Warning on Google Play Console (due to native libraries) 
+
 ## 0.4.29
  -Wasm support #55 
 
