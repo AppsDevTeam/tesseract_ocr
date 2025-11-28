@@ -3,6 +3,8 @@ package io.paratoner.flutter_tesseract_ocr;
 import com.googlecode.tesseract.android.TessBaseAPI;
 
 import android.os.AsyncTask;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import androidx.annotation.NonNull;
 
 import java.io.File;
@@ -49,8 +51,10 @@ public class FlutterTesseractOcrPlugin implements FlutterPlugin, MethodCallHandl
       case "extractHocr":
         final String tessDataPath = call.argument("tessData");
         final String imagePath = call.argument("imagePath");
+        final byte[] imageBytes = call.argument("imageBytes");
         final Map<String, String> args = call.argument("args");
         String DEFAULT_LANGUAGE = "eng";
+
         if (call.argument("language") != null) {
           DEFAULT_LANGUAGE = call.argument("language");
         }
@@ -73,7 +77,13 @@ public class FlutterTesseractOcrPlugin implements FlutterPlugin, MethodCallHandl
         }
 
         baseApi.setPageSegMode(psm);
-        new OcrAsyncTask(baseApi, new File(imagePath), result, call.method.equals("extractHocr")).execute();
+        if (imageBytes != null) {
+          new OcrAsyncTask(baseApi, imageBytes, result, call.method.equals("extractHocr")).execute();
+        } else if (imagePath != null) {
+          new OcrAsyncTask(baseApi, new File(imagePath), result, call.method.equals("extractHocr")).execute();
+        } else {
+          result.error("NO_IMAGE", "Either imagePath or imageBytes must be provided", null);
+        }
         break;
 
       default:
@@ -84,30 +94,52 @@ public class FlutterTesseractOcrPlugin implements FlutterPlugin, MethodCallHandl
   private static class OcrAsyncTask extends AsyncTask<Void, Void, String> {
     private final TessBaseAPI baseApi;
     private final File imageFile;
+    private final byte[] imageBytes;
     private final Result result;
     private final boolean extractHocr;
 
     OcrAsyncTask(TessBaseAPI baseApi, File imageFile, Result result, boolean extractHocr) {
       this.baseApi = baseApi;
       this.imageFile = imageFile;
+      this.imageBytes = null;
+      this.result = result;
+      this.extractHocr = extractHocr;
+    }
+
+    OcrAsyncTask(TessBaseAPI baseApi, byte[] imageBytes, Result result, boolean extractHocr) {
+      this.baseApi = baseApi;
+      this.imageFile = null;
+      this.imageBytes = imageBytes;
       this.result = result;
       this.extractHocr = extractHocr;
     }
 
     @Override
     protected String doInBackground(Void... voids) {
-      
-        this.baseApi.setImage(imageFile);
-        String recognizedText;
-        if (extractHocr) {
-          recognizedText = this.baseApi.getHOCRText(0);
-        } else {
-          recognizedText = this.baseApi.getUTF8Text();
-        }
-        this.baseApi.stop();
-        return recognizedText;
-      
+      if (imageBytes != null) {
+        Bitmap bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.length);
 
+        if (bitmap == null) {
+          return "";
+        }
+
+        this.baseApi.setImage(bitmap);
+      } else if (imageFile != null) {
+        this.baseApi.setImage(imageFile);
+      } else {
+        return "";
+      }
+
+      String recognizedText;
+      if (extractHocr) {
+        recognizedText = this.baseApi.getHOCRText(0);
+      } else {
+        recognizedText = this.baseApi.getUTF8Text();
+      }
+
+      this.baseApi.stop();
+
+      return recognizedText;
     }
 
     @Override

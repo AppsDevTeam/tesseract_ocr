@@ -1,12 +1,11 @@
 import 'dart:async';
-import 'dart:typed_data';
+import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_tesseract_ocr/flutter_tesseract_ocr.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:flutter_tesseract_ocr/flutter_tesseract_ocr.dart';
-import 'dart:io';
-import 'package:flutter/foundation.dart';
 
 void main() {
   runApp(MyApp());
@@ -39,8 +38,7 @@ class _MyHomePageState extends State<MyHomePage> {
   String _ocrText = '';
   String _ocrHocr = '';
   Map<String, String> tessimgs = {
-    "kor":
-        "https://raw.githubusercontent.com/khjde1207/tesseract_ocr/master/example/assets/test1.png",
+    "kor": "https://raw.githubusercontent.com/khjde1207/tesseract_ocr/master/example/assets/test1.png",
     "en": "https://tesseract.projectnaptha.com/img/eng_bw.png",
     "ch_sim": "https://tesseract.projectnaptha.com/img/chi_sim.png",
     "ru": "https://tesseract.projectnaptha.com/img/rus.png",
@@ -52,19 +50,16 @@ class _MyHomePageState extends State<MyHomePage> {
 
   bool bDownloadtessFile = false;
   // "https://img1.daumcdn.net/thumb/R1280x0/?scode=mtistory2&fname=https%3A%2F%2Fblog.kakaocdn.net%2Fdn%2FqCviW%2FbtqGWTUaYLo%2FwD3ZE6r3ARZqi4MkUbcGm0%2Fimg.png";
-  var urlEditController = TextEditingController()
-    ..text = "https://tesseract.projectnaptha.com/img/eng_bw.png";
+  var urlEditController = TextEditingController()..text = "https://tesseract.projectnaptha.com/img/eng_bw.png";
 
   Future<void> writeToFile(ByteData data, String path) {
     final buffer = data.buffer;
-    return new File(path).writeAsBytes(
-        buffer.asUint8List(data.offsetInBytes, data.lengthInBytes));
+    return new File(path).writeAsBytes(buffer.asUint8List(data.offsetInBytes, data.lengthInBytes));
   }
 
   void runFilePiker() async {
     // android && ios only
-    final pickedFile =
-        await ImagePicker().pickImage(source: ImageSource.gallery);
+    final pickedFile = await ImagePicker().pickImage(source: ImageSource.gallery);
     if (pickedFile != null) {
       _ocr(pickedFile.path);
     }
@@ -76,8 +71,7 @@ class _MyHomePageState extends State<MyHomePage> {
       return;
     }
     path = url;
-    if (kIsWeb == false &&
-        (url.indexOf("http://") == 0 || url.indexOf("https://") == 0)) {
+    if (kIsWeb == false && (url.indexOf("http://") == 0 || url.indexOf("https://") == 0)) {
       Directory tempDir = await getTemporaryDirectory();
       HttpClient httpClient = new HttpClient();
       HttpClientRequest request = await httpClient.getUrl(Uri.parse(url));
@@ -94,10 +88,16 @@ class _MyHomePageState extends State<MyHomePage> {
     bload = true;
     setState(() {});
 
-    _ocrText =
-        await FlutterTesseractOcr.extractText(url, language: langs, args: {
+    File imageFile = File(path);
+    Uint8List imageData = await imageFile.readAsBytes();
+
+    _ocrText = await FlutterTesseractOcr.extractTextFromData(imageData, language: langs, args: {
       "preserve_interword_spaces": "1",
     });
+
+    /*_ocrText = await FlutterTesseractOcr.extractText(url, language: langs, args: {
+      "preserve_interword_spaces": "1",
+    });*/
     //  ========== Test performance  ==========
     // DateTime before1 = DateTime.now();
     // print('init : start');
@@ -161,8 +161,7 @@ class _MyHomePageState extends State<MyHomePage> {
                                               key,
                                               SimpleDialogOption(
                                                   onPressed: () {
-                                                    urlEditController.text =
-                                                        value;
+                                                    urlEditController.text = value;
                                                     setState(() {});
                                                     Navigator.pop(context);
                                                   },
@@ -170,8 +169,7 @@ class _MyHomePageState extends State<MyHomePage> {
                                                     children: [
                                                       Text(key),
                                                       Text(" : "),
-                                                      Flexible(
-                                                          child: Text(value)),
+                                                      Flexible(child: Text(value)),
                                                     ],
                                                   )));
                                         })
@@ -207,9 +205,7 @@ class _MyHomePageState extends State<MyHomePage> {
                             onChanged: (v) async {
                               // dynamic add Tessdata
                               if (kIsWeb == false) {
-                                Directory dir = Directory(
-                                    await FlutterTesseractOcr
-                                        .getTessdataPath());
+                                Directory dir = Directory(await FlutterTesseractOcr.getTessdataPath());
                                 if (!dir.existsSync()) {
                                   dir.create();
                                 }
@@ -225,16 +221,11 @@ class _MyHomePageState extends State<MyHomePage> {
                                   bDownloadtessFile = true;
                                   setState(() {});
                                   HttpClient httpClient = new HttpClient();
-                                  HttpClientRequest request =
-                                      await httpClient.getUrl(Uri.parse(
-                                          'https://github.com/tesseract-ocr/tessdata/raw/main/${e}.traineddata'));
-                                  HttpClientResponse response =
-                                      await request.close();
-                                  Uint8List bytes =
-                                      await consolidateHttpClientResponseBytes(
-                                          response);
-                                  String dir = await FlutterTesseractOcr
-                                      .getTessdataPath();
+                                  HttpClientRequest request = await httpClient.getUrl(
+                                      Uri.parse('https://github.com/tesseract-ocr/tessdata/raw/main/${e}.traineddata'));
+                                  HttpClientResponse response = await request.close();
+                                  Uint8List bytes = await consolidateHttpClientResponseBytes(response);
+                                  String dir = await FlutterTesseractOcr.getTessdataPath();
                                   print('$dir/${e}.traineddata');
                                   File file = new File('$dir/${e}.traineddata');
                                   await file.writeAsBytes(bytes);
@@ -279,10 +270,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 ? Center(
                     child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      CircularProgressIndicator(),
-                      Text('download Trained language files')
-                    ],
+                    children: [CircularProgressIndicator(), Text('download Trained language files')],
                   ))
                 : SizedBox(),
           )
