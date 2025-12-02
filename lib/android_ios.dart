@@ -167,9 +167,15 @@ class FlutterTesseractOcr {
   }
 
   static Future<String> _resolveTessDataPath(String? providedPath) async {
-    if (providedPath != null) return providedPath;
+    if (providedPath != null) {
+      return providedPath;
+    }
 
-    if (_cachedTessDataPath != null) return _cachedTessDataPath!;
+    final String? cachedPath = _cachedTessDataPath;
+
+    if (cachedPath != null) {
+      return cachedPath;
+    }
 
     return await prepareTessData();
   }
