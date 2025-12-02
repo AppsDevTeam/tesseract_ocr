@@ -16,7 +16,7 @@ class FlutterTesseractOcr {
   static String? _cachedTessDataPath;
 
   static Future<void> init() async {
-    _cachedTessDataPath = await prepareTessData();
+    _cachedTessDataPath = await _prepareTessData();
   }
 
   static String get tessDataPath {
@@ -108,7 +108,7 @@ class FlutterTesseractOcr {
     );
   }
 
-  static Future<String> prepareTessData() async {
+  static Future<String> _prepareTessData() async {
     final Directory appDirectory = await getApplicationDocumentsDirectory();
     final String tessdataDirectory = join(appDirectory.path, 'tessdata');
 
@@ -121,7 +121,7 @@ class FlutterTesseractOcr {
     return appDirectory.path;
   }
 
-  static Future<String> getTessdataPath() => prepareTessData();
+  static Future<String> getTessdataPath() => _prepareTessData();
 
   static Future _copyTessDataToAppDocumentsDirectory(String tessdataDirectory) async {
     final String config = await rootBundle.loadString(TESS_DATA_CONFIG);
@@ -177,7 +177,7 @@ class FlutterTesseractOcr {
       return cachedPath;
     }
 
-    return await prepareTessData();
+    return await _prepareTessData();
   }
 
   // Return channel for actual isolate
