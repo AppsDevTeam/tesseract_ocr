@@ -11,7 +11,24 @@ import 'package:path_provider/path_provider.dart';
 class FlutterTesseractOcr {
   static const String TESS_DATA_CONFIG = 'assets/tessdata_config.json';
   static const String TESS_DATA_PATH = 'assets/tessdata';
-  static const MethodChannel _channel = const MethodChannel('flutter_tesseract_ocr');
+  static const String _channelName = 'flutter_tesseract_ocr';
+
+  // Return channel for actual isolate
+  static MethodChannel _channelForCurrentIsolate() {
+    BinaryMessenger messenger;
+
+    try {
+      messenger = ServicesBinding.instance.defaultBinaryMessenger;
+    } catch (_) {
+      messenger = BackgroundIsolateBinaryMessenger.instance;
+    }
+
+    return MethodChannel(
+      _channelName,
+      const StandardMethodCodec(),
+      messenger,
+    );
+  }
 
   /// image to  text
   ///```
@@ -103,8 +120,9 @@ class FlutterTesseractOcr {
     }
 
     final String tessData = await _loadTessData();
+    final MethodChannel channel = _channelForCurrentIsolate();
 
-    final String extractedText = await _channel.invokeMethod(method, <String, dynamic>{
+    final String extractedText = await channel.invokeMethod(method, <String, dynamic>{
       'imagePath': imagePath?.isNotEmpty ?? false ? imagePath : null,
       'imageBytes': imageBytes,
       'tessData': tessData,
