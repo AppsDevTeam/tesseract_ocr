@@ -13,21 +13,15 @@ class FlutterTesseractOcr {
   static const String TESS_DATA_PATH = 'assets/tessdata';
   static const String _channelName = 'flutter_tesseract_ocr';
 
-  // Return channel for actual isolate
-  static MethodChannel _channelForCurrentIsolate() {
-    BinaryMessenger messenger;
+  static String? _cachedTessDataPath;
 
-    try {
-      messenger = ServicesBinding.instance.defaultBinaryMessenger;
-    } catch (_) {
-      messenger = BackgroundIsolateBinaryMessenger.instance;
-    }
+  static Future<void> init() async {
+    _cachedTessDataPath = await prepareTessData();
+  }
 
-    return MethodChannel(
-      _channelName,
-      const StandardMethodCodec(),
-      messenger,
-    );
+  static String get tessDataPath {
+    assert(_cachedTessDataPath != null, 'FlutterTesseractOcr.init() must be called before using tessDataPath');
+    return _cachedTessDataPath!;
   }
 
   /// image to  text
@@ -35,26 +29,15 @@ class FlutterTesseractOcr {
   /// String _ocrText = await FlutterTesseractOcr.extractText(url, language: langs, args: {
   ///    "preserve_interword_spaces": "1",});
   ///```
-  static Future<String> extractText(String imagePath, {String? language, Map<String, String>? args}) async {
+  static Future<String> extractText(
+    String imagePath, {
+    String? language,
+    String? tessDataPath,
+    Map<String, String>? args,
+  }) async {
     return await _extractImageData(
       imagePath: imagePath,
       imageBytes: null,
-      method: Constants.methodExtractText,
-      language: language,
-      args: args,
-      tessDataPath: null,
-    );
-  }
-
-  static Future<String> extractTextIsolate(
-    Uint8List imageBytes, {
-    required String tessDataPath,
-    String? language,
-    Map<String, String>? args,
-  }) async {
-    return _extractImageData(
-      imagePath: null,
-      imageBytes: imageBytes,
       method: Constants.methodExtractText,
       language: language,
       args: args,
@@ -67,24 +50,13 @@ class FlutterTesseractOcr {
   /// String _ocrText = await FlutterTesseractOcr.extractTextFromData(imageData, language: langs, args: {
   ///   "preserve_interword_spaces": "1",});
   /// ```
-  static Future<String> extractTextFromData(Uint8List imageBytes, {String? language, Map<String, String>? args}) async {
-    return await _extractImageData(
-      imagePath: null,
-      imageBytes: imageBytes,
-      method: Constants.methodExtractText,
-      language: language,
-      args: args,
-      tessDataPath: null,
-    );
-  }
-
-  static Future<String> extractTextFromDataIsolate(
+  static Future<String> extractTextFromData(
     Uint8List imageBytes, {
-    required String tessDataPath,
     String? language,
+    String? tessDataPath,
     Map<String, String>? args,
   }) async {
-    return _extractImageData(
+    return await _extractImageData(
       imagePath: null,
       imageBytes: imageBytes,
       method: Constants.methodExtractText,
@@ -99,26 +71,15 @@ class FlutterTesseractOcr {
   /// String _ocrHocr = await FlutterTesseractOcr.extractText(url, language: langs, args: {
   ///    "preserve_interword_spaces": "1",});
   ///```
-  static Future<String> extractHocr(String imagePath, {String? language, Map<String, String>? args}) async {
+  static Future<String> extractHocr(
+    String imagePath, {
+    String? language,
+    String? tessDataPath,
+    Map<String, String>? args,
+  }) async {
     return await _extractImageData(
       imagePath: imagePath,
       imageBytes: null,
-      method: Constants.methodExtractHocr,
-      language: language,
-      args: args,
-      tessDataPath: null,
-    );
-  }
-
-  static Future<String> extractHocrIsolate(
-    Uint8List imageBytes, {
-    required String tessDataPath,
-    String? language,
-    Map<String, String>? args,
-  }) async {
-    return _extractImageData(
-      imagePath: null,
-      imageBytes: imageBytes,
       method: Constants.methodExtractHocr,
       language: language,
       args: args,
@@ -131,24 +92,13 @@ class FlutterTesseractOcr {
   /// String _ocrHocr = await FlutterTesseractOcr.extractHocrFromData(imageData, language: langs, args: {
   ///   "preserve_interword_spaces": "1",});
   /// ```
-  static Future<String> extractHocrFromData(Uint8List imageBytes, {String? language, Map<String, String>? args}) async {
-    return await _extractImageData(
-      imagePath: null,
-      imageBytes: imageBytes,
-      method: Constants.methodExtractHocr,
-      language: language,
-      args: args,
-      tessDataPath: null,
-    );
-  }
-
-  static Future<String> extractHocrFromDataIsolate(
+  static Future<String> extractHocrFromData(
     Uint8List imageBytes, {
-    required String tessDataPath,
     String? language,
+    String? tessDataPath,
     Map<String, String>? args,
   }) async {
-    return _extractImageData(
+    return await _extractImageData(
       imagePath: null,
       imageBytes: imageBytes,
       method: Constants.methodExtractHocr,
@@ -202,7 +152,7 @@ class FlutterTesseractOcr {
       assert(await File(imagePath!).exists(), true);
     }
 
-    final String tessData = tessDataPath ?? await prepareTessData();
+    final String tessData = await _resolveTessDataPath(tessDataPath);
     final MethodChannel channel = _channelForCurrentIsolate();
 
     final String extractedText = await channel.invokeMethod(method, <String, dynamic>{
@@ -214,5 +164,30 @@ class FlutterTesseractOcr {
     });
 
     return extractedText;
+  }
+
+  static Future<String> _resolveTessDataPath(String? providedPath) async {
+    if (providedPath != null) return providedPath;
+
+    if (_cachedTessDataPath != null) return _cachedTessDataPath!;
+
+    return await prepareTessData();
+  }
+
+  // Return channel for actual isolate
+  static MethodChannel _channelForCurrentIsolate() {
+    BinaryMessenger messenger;
+
+    try {
+      messenger = ServicesBinding.instance.defaultBinaryMessenger;
+    } catch (_) {
+      messenger = BackgroundIsolateBinaryMessenger.instance;
+    }
+
+    return MethodChannel(
+      _channelName,
+      const StandardMethodCodec(),
+      messenger,
+    );
   }
 }
