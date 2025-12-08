@@ -25,15 +25,20 @@ public class FlutterTesseractOcrPlugin implements FlutterPlugin, MethodCallHandl
 
   private MethodChannel channel;
 
+  private volatile boolean isAttached = false;
+
   @Override
   public void onAttachedToEngine(@NonNull FlutterPluginBinding flutterPluginBinding) {
     BinaryMessenger messenger = flutterPluginBinding.getBinaryMessenger();
     channel = new MethodChannel(messenger, "flutter_tesseract_ocr");
     channel.setMethodCallHandler(this);
+    isAttached = true;
   }
 
   @Override
   public void onDetachedFromEngine(@NonNull FlutterPluginBinding binding) {
+    isAttached = false;
+
     if (channel != null) {
       channel.setMethodCallHandler(null);
       channel = null;
@@ -78,9 +83,9 @@ public class FlutterTesseractOcrPlugin implements FlutterPlugin, MethodCallHandl
 
         baseApi.setPageSegMode(psm);
         if (imageBytes != null) {
-          new OcrAsyncTask(baseApi, imageBytes, result, call.method.equals("extractHocr")).execute();
+          new OcrAsyncTask(this, baseApi, imageBytes, result, call.method.equals("extractHocr")).execute();
         } else if (imagePath != null) {
-          new OcrAsyncTask(baseApi, new File(imagePath), result, call.method.equals("extractHocr")).execute();
+          new OcrAsyncTask(this, baseApi, new File(imagePath), result, call.method.equals("extractHocr")).execute();
         } else {
           result.error("NO_IMAGE", "Either imagePath or imageBytes must be provided", null);
         }
@@ -97,21 +102,27 @@ public class FlutterTesseractOcrPlugin implements FlutterPlugin, MethodCallHandl
     private final byte[] imageBytes;
     private final Result result;
     private final boolean extractHocr;
+    private final WeakReference<FlutterTesseractOcrPlugin> pluginRef;
 
-    OcrAsyncTask(TessBaseAPI baseApi, File imageFile, Result result, boolean extractHocr) {
+    OcrAsyncTask(FlutterTesseractOcrPlugin plugin, TessBaseAPI baseApi, File imageFile, Result result,
+        boolean extractHocr) {
       this.baseApi = baseApi;
       this.imageFile = imageFile;
       this.imageBytes = null;
       this.result = result;
       this.extractHocr = extractHocr;
+      this.pluginRef = new WeakReference<>(plugin);
+
     }
 
-    OcrAsyncTask(TessBaseAPI baseApi, byte[] imageBytes, Result result, boolean extractHocr) {
+    OcrAsyncTask(FlutterTesseractOcrPlugin plugin, TessBaseAPI baseApi, byte[] imageBytes, Result result,
+        boolean extractHocr) {
       this.baseApi = baseApi;
       this.imageFile = null;
       this.imageBytes = imageBytes;
       this.result = result;
       this.extractHocr = extractHocr;
+      this.pluginRef = new WeakReference<>(plugin);
     }
 
     @Override
@@ -144,7 +155,17 @@ public class FlutterTesseractOcrPlugin implements FlutterPlugin, MethodCallHandl
 
     @Override
     protected void onPostExecute(String recognizedText) {
-      result.success(recognizedText);
+      FlutterTesseractOcrPlugin plugin = pluginRef.get();
+
+      if (plugin == null || !plugin.isAttached()) {
+        return;
+      }
+
+      try {
+        result.success(recognizedText);
+      } catch (IllegalStateException e) {
+        e.printStackTrace();
+      }
     }
   }
 }
