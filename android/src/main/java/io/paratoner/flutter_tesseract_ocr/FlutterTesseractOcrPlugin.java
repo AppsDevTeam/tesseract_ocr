@@ -6,6 +6,7 @@ import android.os.AsyncTask;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import androidx.annotation.NonNull;
+import java.lang.ref.WeakReference;
 
 import java.io.File;
 import java.util.Map.*;
@@ -94,6 +95,10 @@ public class FlutterTesseractOcrPlugin implements FlutterPlugin, MethodCallHandl
       default:
         result.notImplemented();
     }
+  }
+
+  boolean isAttached() {
+    return isAttached;
   }
 
   private static class OcrAsyncTask extends AsyncTask<Void, Void, String> {
