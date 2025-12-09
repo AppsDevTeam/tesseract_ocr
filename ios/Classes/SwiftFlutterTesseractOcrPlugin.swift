@@ -80,24 +80,27 @@ public class SwiftFlutterTesseractOcrPlugin: NSObject, FlutterPlugin {
     func initializeTessData() {
         let fileManager = FileManager.default
 
-        guard
-            let documentsURL = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first
-        else {
-            print("Could not resolve documents directory")
+        // bundle path
+        let tessdataInBundle = Bundle.main.bundleURL.appendingPathComponent("tessdata")
+
+        guard fileManager.fileExists(atPath: tessdataInBundle.path) else {
+            print("tessdata not found in bundle at: \(tessdataInBundle.path)")
             return
         }
 
-        let destURL = documentsURL.appendingPathComponent("tessdata")
-        let sourceURL = Bundle.main.bundleURL.appendingPathComponent("tessdata")
+        // Tesseract expects tessdata in documents to be writable, so we copy if needed
+        let documentsURL = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first!
+        let tessdataInDocuments = documentsURL.appendingPathComponent("tessdata")
 
-        if fileManager.fileExists(atPath: destURL.path) {
-            return
-        }
-
-        do {
-            try fileManager.createSymbolicLink(at: destURL, withDestinationURL: sourceURL)
-        } catch {
-            print("Failed to create tessdata symlink: \(error)")
+        if !fileManager.fileExists(atPath: tessdataInDocuments.path) {
+            do {
+                try fileManager.copyItem(at: tessdataInBundle, to: tessdataInDocuments)
+                print("tessdata copied to documents directory")
+            } catch {
+                print("Failed to copy tessdata: \(error)")
+            }
+        } else {
+            print("tessdata already exists in documents")
         }
     }
 }
