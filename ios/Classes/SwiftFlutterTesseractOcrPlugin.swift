@@ -83,6 +83,9 @@ public class SwiftFlutterTesseractOcrPlugin: NSObject, FlutterPlugin {
         // bundle path
         let tessdataInBundle = Bundle.main.bundleURL.appendingPathComponent("tessdata")
 
+        print("Bundle tessdata path =", tessdataInBundle)
+        print("Exists?", FileManager.default.fileExists(atPath: tessdataInBundle))
+
         guard fileManager.fileExists(atPath: tessdataInBundle.path) else {
             print("tessdata not found in bundle at: \(tessdataInBundle.path)")
             return
@@ -102,5 +105,8 @@ public class SwiftFlutterTesseractOcrPlugin: NSObject, FlutterPlugin {
         } else {
             print("tessdata already exists in documents")
         }
+
+        let contents = try? FileManager.default.contentsOfDirectory(atPath: bundlePath)
+        print("Files inside tessdata:", contents ?? [])
     }
 }
