@@ -1,6 +1,11 @@
 import Flutter
-import SwiftyTesseract
 import UIKit
+import SwiftyTesseract
+
+// Custom data source pro SwiftyTesseract – ukazuje na cestu, kde leží *.traineddata
+struct FileSystemTessDataSource: TessDataSource {
+    let pathToTrainedData: String
+}
 
 public class SwiftFlutterTesseractOcrPlugin: NSObject, FlutterPlugin {
 
@@ -14,8 +19,6 @@ public class SwiftFlutterTesseractOcrPlugin: NSObject, FlutterPlugin {
     }
 
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-        initializeTessData()
-
         guard call.method == "extractText" || call.method == "extractHocr" else {
             result(FlutterMethodNotImplemented)
             return
@@ -26,29 +29,35 @@ public class SwiftFlutterTesseractOcrPlugin: NSObject, FlutterPlugin {
             return
         }
 
-        let language = args["language"] as? String
-
-        var tesseract = SwiftyTesseract(language: .english)
-
-        if let lang = language, !lang.isEmpty {
-            tesseract = SwiftyTesseract(language: .custom(lang))
+        guard let tessDataParentPath = args["tessData"] as? String, !tessDataParentPath.isEmpty else {
+            result("Missing tessData path")
+            return
         }
+
+        let tessdataPath = (tessDataParentPath as NSString).appendingPathComponent("tessdata")
+
+        let languageParam = (args["language"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let languageString = (languageParam?.isEmpty == false) ? languageParam! : "eng"
+
+        let dataSource = FileSystemTessDataSource(pathToTrainedData: tessdataPath)
+        let tesseract = SwiftyTesseract(
+            language: .custom(languageString),
+            dataSource: dataSource
+        )
 
         if let imageBytes = args["imageBytes"] as? FlutterStandardTypedData {
             guard let image = UIImage(data: imageBytes.data) else {
                 result("Failed to decode image from imageBytes")
                 return
             }
+            performOcr(on: image, method: call.method, tesseract: tesseract, result: result)
 
-            performOcr(on: image, method: call.method, swiftyTesseract: tesseract, result: result)
-
-        } else if let imagePath = args["imagePath"] as? String {
+        } else if let imagePath = args["imagePath"] as? String, !imagePath.isEmpty {
             guard let image = UIImage(contentsOfFile: imagePath) else {
                 result("Failed to load image from imagePath")
                 return
             }
-
-            performOcr(on: image, method: call.method, swiftyTesseract: tesseract, result: result)
+            performOcr(on: image, method: call.method, tesseract: tesseract, result: result)
 
         } else {
             result("You must provide either imagePath or imageBytes")
@@ -58,55 +67,16 @@ public class SwiftFlutterTesseractOcrPlugin: NSObject, FlutterPlugin {
     func performOcr(
         on image: UIImage,
         method: String,
-        swiftyTesseract: SwiftyTesseract,
+        tesseract: SwiftyTesseract,
         result: @escaping FlutterResult
     ) {
-        swiftyTesseract.performOCR(on: image) { recognizedString in
+        tesseract.performOCR(on: image) { recognizedString in
             guard let recognizedString = recognizedString else {
                 result("OCR failed to extract text")
                 return
             }
 
-            if method == "extractHocr" {
-                result("hOCR output is not supported on iOS with current SwiftyTesseract version")
-            } else {
-                result(recognizedString)
-            }
-
             result(recognizedString)
         }
-    }
-
-    func initializeTessData() {
-        let fileManager = FileManager.default
-
-        // bundle path
-        let tessdataInBundle = Bundle.main.bundleURL.appendingPathComponent("tessdata")
-
-        print("Bundle tessdata path =", tessdataInBundle)
-        print("Exists?", FileManager.default.fileExists(atPath: tessdataInBundle))
-
-        guard fileManager.fileExists(atPath: tessdataInBundle.path) else {
-            print("tessdata not found in bundle at: \(tessdataInBundle.path)")
-            return
-        }
-
-        // Tesseract expects tessdata in documents to be writable, so we copy if needed
-        let documentsURL = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first!
-        let tessdataInDocuments = documentsURL.appendingPathComponent("tessdata")
-
-        if !fileManager.fileExists(atPath: tessdataInDocuments.path) {
-            do {
-                try fileManager.copyItem(at: tessdataInBundle, to: tessdataInDocuments)
-                print("tessdata copied to documents directory")
-            } catch {
-                print("Failed to copy tessdata: \(error)")
-            }
-        } else {
-            print("tessdata already exists in documents")
-        }
-
-        let contents = try? FileManager.default.contentsOfDirectory(atPath: bundlePath)
-        print("Files inside tessdata:", contents ?? [])
     }
 }
