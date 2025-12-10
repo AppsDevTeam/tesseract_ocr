@@ -2,8 +2,7 @@ import Flutter
 import UIKit
 import SwiftyTesseract
 
-// Custom data source pro SwiftyTesseract – ukazuje na cestu, kde leží *.traineddata
-struct FileSystemTessDataSource: TessDataSource {
+struct FileSystemTessDataSource: LanguageModelDataSource {
     let pathToTrainedData: String
 }
 
@@ -39,7 +38,7 @@ public class SwiftFlutterTesseractOcrPlugin: NSObject, FlutterPlugin {
         let languageParam = (args["language"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
         let languageString = (languageParam?.isEmpty == false) ? languageParam! : "eng"
 
-        let dataSource = FileSystemTessDataSource(pathToTrainedData: tessdataPath)
+        let dataSource = FileSystemLanguageModelDataSource(pathToTrainedData: tessdataPath)
         let tesseract = SwiftyTesseract(
             language: .custom(languageString),
             dataSource: dataSource
@@ -70,13 +69,14 @@ public class SwiftFlutterTesseractOcrPlugin: NSObject, FlutterPlugin {
         tesseract: SwiftyTesseract,
         result: @escaping FlutterResult
     ) {
-        tesseract.performOCR(on: image) { recognizedString in
-            guard let recognizedString = recognizedString else {
-                result("OCR failed to extract text")
-                return
-            }
+        let ocrResult = tesseract.performOCR(on: image)
 
-            result(recognizedString)
+        switch ocrResult {
+        case .success(let text):
+            result(text)
+
+        case .failure(let error):
+            result("OCR failed: \(error)")
         }
     }
 }
