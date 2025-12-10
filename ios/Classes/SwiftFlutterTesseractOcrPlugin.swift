@@ -2,7 +2,7 @@ import Flutter
 import UIKit
 import SwiftyTesseract
 
-struct FileSystemTessDataSource: LanguageModelDataSource {
+struct FileSystemLanguageModelDataSource: LanguageModelDataSource {
     let pathToTrainedData: String
 }
 
